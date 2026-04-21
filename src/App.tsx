@@ -1,125 +1,24 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
+import VideoPage from '@/pages/VideoPage';
+import BloggerPage from '@/pages/BloggerPage';
+import AdminPage from '@/pages/AdminPage';
+import {
+  INITIAL_VIDEOS as DATA_VIDEOS,
+  BLOGGERS,
+  INITIAL_MESSAGES,
+  INITIAL_CHATS,
+  INITIAL_NOTIFICATIONS,
+  type Video,
+  type ChatMessage,
+  type Blogger,
+} from '@/data';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Page = 'home' | 'feed' | 'profile' | 'upload' | 'messages' | 'notifications' | 'search' | 'recommendations';
+type Page = 'home' | 'feed' | 'profile' | 'upload' | 'messages' | 'notifications' | 'search' | 'recommendations' | 'admin';
 
-interface Video {
-  id: number;
-  author: string;
-  handle: string;
-  title: string;
-  views: string;
-  duration: string;
-  likes: number;
-  comments: number;
-  reposts: number;
-  thumb: string;
-  avatar: string;
-  liked: boolean;
-  reposted: boolean;
-  category: string;
-  isNew: boolean;
-  subscribed: boolean;
-}
 
-interface Comment {
-  id: number;
-  author: string;
-  avatar: string;
-  text: string;
-  time: string;
-  likes: number;
-}
-
-interface ChatMessage {
-  id: number;
-  from: 'me' | 'them';
-  text: string;
-  time: string;
-}
-
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-
-const INITIAL_VIDEOS: Video[] = [
-  { id: 1, author: 'Анна Козлова', handle: '@anna.k', title: 'Как я сняла рекламный ролик за 2 часа', views: '48 тыс', duration: '12:34', likes: 2410, comments: 4, reposts: 156, thumb: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=600&q=80', avatar: 'https://i.pravatar.cc/40?img=5', liked: false, reposted: false, category: 'Влоги', isNew: false, subscribed: true },
-  { id: 2, author: 'Макс Орлов', handle: '@max.video', title: 'Монтаж в телефоне: 5 приёмов которые изменят всё', views: '123 тыс', duration: '8:17', likes: 5820, comments: 3, reposts: 441, thumb: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=600&q=80', avatar: 'https://i.pravatar.cc/40?img=12', liked: true, reposted: false, category: 'Технологии', isNew: true, subscribed: true },
-  { id: 3, author: 'Лера Смит', handle: '@lera.creates', title: 'Влог: неделя в горах без интернета', views: '89 тыс', duration: '22:05', likes: 3100, comments: 5, reposts: 212, thumb: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80', avatar: 'https://i.pravatar.cc/40?img=9', liked: false, reposted: false, category: 'Путешествия', isNew: true, subscribed: false },
-  { id: 4, author: 'Иван Петров', handle: '@ivan.tech', title: 'Обзор камеры Sony A7C II — стоит ли покупать?', views: '67 тыс', duration: '18:42', likes: 1890, comments: 2, reposts: 78, thumb: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80', avatar: 'https://i.pravatar.cc/40?img=3', liked: false, reposted: false, category: 'Технологии', isNew: false, subscribed: false },
-  { id: 5, author: 'Ольга Новак', handle: '@olga.film', title: 'Кинематографичная съёмка на iPhone 15', views: '201 тыс', duration: '14:58', likes: 9340, comments: 6, reposts: 887, thumb: 'https://images.unsplash.com/photo-1533659124865-d6072dc035e1?w=600&q=80', avatar: 'https://i.pravatar.cc/40?img=21', liked: true, reposted: true, category: 'Кино', isNew: true, subscribed: true },
-  { id: 6, author: 'Дима Лес', handle: '@dima.drone', title: 'Аэросъёмка заката над городом', views: '55 тыс', duration: '6:30', likes: 4120, comments: 3, reposts: 290, thumb: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=80', avatar: 'https://i.pravatar.cc/40?img=17', liked: false, reposted: false, category: 'Путешествия', isNew: false, subscribed: false },
-];
-
-const VIDEO_COMMENTS: Record<number, Comment[]> = {
-  1: [
-    { id: 1, author: 'Макс Орлов', avatar: 'https://i.pravatar.cc/40?img=12', text: 'Невероятно! Как вы это сделали за такое короткое время?', time: '2 ч назад', likes: 24 },
-    { id: 2, author: 'Лера Смит', avatar: 'https://i.pravatar.cc/40?img=9', text: 'Отличная работа, вдохновляет попробовать самой', time: '3 ч назад', likes: 11 },
-    { id: 3, author: 'Иван Петров', avatar: 'https://i.pravatar.cc/40?img=3', text: 'Какой софт для монтажа используете?', time: '5 ч назад', likes: 7 },
-    { id: 4, author: 'Дима Лес', avatar: 'https://i.pravatar.cc/40?img=17', text: 'Топ контент как всегда!', time: '6 ч назад', likes: 3 },
-  ],
-  2: [
-    { id: 1, author: 'Анна Козлова', avatar: 'https://i.pravatar.cc/40?img=5', text: 'Приём с переходами просто огонь, уже попробовала', time: '1 ч назад', likes: 42 },
-    { id: 2, author: 'Ольга Новак', avatar: 'https://i.pravatar.cc/40?img=21', text: 'Сохранила видео, буду пересматривать', time: '4 ч назад', likes: 18 },
-    { id: 3, author: 'Дима Лес', avatar: 'https://i.pravatar.cc/40?img=17', text: 'Лучший туториал по мобильному монтажу что видел', time: '7 ч назад', likes: 31 },
-  ],
-  3: [
-    { id: 1, author: 'Анна Козлова', avatar: 'https://i.pravatar.cc/40?img=5', text: 'Красота природы потрясающая, хочу туда!', time: '30 мин назад', likes: 15 },
-    { id: 2, author: 'Макс Орлов', avatar: 'https://i.pravatar.cc/40?img=12', text: 'Как вы снимали без интернета? Никакой связи?', time: '1 ч назад', likes: 9 },
-    { id: 3, author: 'Иван Петров', avatar: 'https://i.pravatar.cc/40?img=3', text: 'Завораживающие кадры!', time: '2 ч назад', likes: 5 },
-    { id: 4, author: 'Ольга Новак', avatar: 'https://i.pravatar.cc/40?img=21', text: 'Подскажи куда именно ехать?', time: '3 ч назад', likes: 12 },
-    { id: 5, author: 'Дима Лес', avatar: 'https://i.pravatar.cc/40?img=17', text: 'Хочу снять что-то похожее летом', time: '5 ч назад', likes: 8 },
-  ],
-  4: [
-    { id: 1, author: 'Ольга Новак', avatar: 'https://i.pravatar.cc/40?img=21', text: 'Давно ждала такого подробного обзора!', time: '1 ч назад', likes: 19 },
-    { id: 2, author: 'Лера Смит', avatar: 'https://i.pravatar.cc/40?img=9', text: 'Куплю в итоге, убедил)', time: '3 ч назад', likes: 6 },
-  ],
-  5: [
-    { id: 1, author: 'Иван Петров', avatar: 'https://i.pravatar.cc/40?img=3', text: 'Не знал что iPhone так умеет снимать, невероятно', time: '15 мин назад', likes: 54 },
-    { id: 2, author: 'Лера Смит', avatar: 'https://i.pravatar.cc/40?img=9', text: 'Урок по цветокоррекции пожалуйста!', time: '45 мин назад', likes: 37 },
-    { id: 3, author: 'Анна Козлова', avatar: 'https://i.pravatar.cc/40?img=5', text: 'Подписалась — жду новых видео', time: '2 ч назад', likes: 22 },
-    { id: 4, author: 'Макс Орлов', avatar: 'https://i.pravatar.cc/40?img=12', text: 'Ты лучший автор на платформе!', time: '4 ч назад', likes: 44 },
-    { id: 5, author: 'Дима Лес', avatar: 'https://i.pravatar.cc/40?img=17', text: 'Какие настройки камеры?', time: '5 ч назад', likes: 11 },
-  ],
-  6: [
-    { id: 1, author: 'Анна Козлова', avatar: 'https://i.pravatar.cc/40?img=5', text: 'Такие закаты нам и не снились...', time: '1 ч назад', likes: 28 },
-    { id: 2, author: 'Ольга Новак', avatar: 'https://i.pravatar.cc/40?img=21', text: 'Дрон какой модели?', time: '2 ч назад', likes: 14 },
-    { id: 3, author: 'Макс Орлов', avatar: 'https://i.pravatar.cc/40?img=12', text: 'Потрясающая картинка!', time: '4 ч назад', likes: 20 },
-  ],
-};
-
-const INITIAL_MESSAGES = [
-  { id: 1, name: 'Макс Орлов', text: 'Отличное видео! Как ты добился такого цвета?', time: '14:32', unread: 2, avatar: 'https://i.pravatar.cc/40?img=12' },
-  { id: 2, name: 'Анна Козлова', text: 'Спасибо за подписку!', time: '11:15', unread: 0, avatar: 'https://i.pravatar.cc/40?img=5' },
-  { id: 3, name: 'Лера Смит', text: 'Коллаборация?', time: 'вчера', unread: 1, avatar: 'https://i.pravatar.cc/40?img=9' },
-  { id: 4, name: 'Иван Петров', text: 'Подскажи какой штатив используешь', time: 'вчера', unread: 0, avatar: 'https://i.pravatar.cc/40?img=3' },
-];
-
-const INITIAL_CHATS: Record<number, ChatMessage[]> = {
-  1: [
-    { id: 1, from: 'me', text: 'Привет! Спасибо за поддержку', time: '14:20' },
-    { id: 2, from: 'them', text: 'Отличное видео! Как ты добился такого цвета?', time: '14:32' },
-  ],
-  2: [
-    { id: 1, from: 'them', text: 'Спасибо за подписку!', time: '11:15' },
-    { id: 2, from: 'me', text: 'Давно слежу за твоими работами!', time: '11:18' },
-  ],
-  3: [
-    { id: 1, from: 'them', text: 'Привет! Как дела?', time: '09:00' },
-    { id: 2, from: 'them', text: 'Коллаборация?', time: '09:05' },
-  ],
-  4: [
-    { id: 1, from: 'them', text: 'Подскажи какой штатив используешь', time: 'вчера' },
-  ],
-};
-
-const INITIAL_NOTIFICATIONS = [
-  { id: 1, type: 'like', user: 'Макс Орлов', action: 'оценил ваше видео', video: 'Как я сняла рекламный ролик', time: '5 мин', avatar: 'https://i.pravatar.cc/40?img=12', read: false },
-  { id: 2, type: 'subscribe', user: 'Ольга Новак', action: 'подписалась на вас', video: '', time: '23 мин', avatar: 'https://i.pravatar.cc/40?img=21', read: false },
-  { id: 3, type: 'comment', user: 'Дима Лес', action: 'прокомментировал: «Шикарно снято!»', video: '', time: '1 ч', avatar: 'https://i.pravatar.cc/40?img=17', read: false },
-  { id: 4, type: 'repost', user: 'Лера Смит', action: 'сделала репост вашего видео', video: 'Монтаж в телефоне', time: '3 ч', avatar: 'https://i.pravatar.cc/40?img=9', read: false },
-  { id: 5, type: 'like', user: 'Иван Петров', action: 'оценил ваше видео', video: 'Влог: неделя в горах', time: '5 ч', avatar: 'https://i.pravatar.cc/40?img=3', read: true },
-];
 
 const MOBILE_NAV: { id: Page; label: string; icon: string }[] = [
   { id: 'home', label: 'Главная', icon: 'Home' },
@@ -138,6 +37,7 @@ const DESKTOP_NAV: { id: Page; label: string; icon: string }[] = [
   { id: 'notifications', label: 'Уведомления', icon: 'Bell' },
   { id: 'upload', label: 'Загрузить', icon: 'Upload' },
   { id: 'profile', label: 'Профиль', icon: 'User' },
+  { id: 'admin', label: 'Админ', icon: 'ShieldCheck' },
 ];
 
 // ─── useIsMobile ───────────────────────────────────────────────────────────────
@@ -814,8 +714,9 @@ function MobileNav({ page, setPage, unreadNotifications, onRecord }: {
 
 // ─── Video Card ────────────────────────────────────────────────────────────────
 
-function VideoCard({ video, onToggleLike, onToggleRepost, onAuthorClick, onComment, onShare, onPlay }: {
+function VideoCard({ video, verified, onToggleLike, onToggleRepost, onAuthorClick, onComment, onShare, onPlay }: {
   video: Video;
+  verified?: boolean;
   onToggleLike: (id: number) => void;
   onToggleRepost: (id: number) => void;
   onAuthorClick: () => void;
@@ -839,7 +740,10 @@ function VideoCard({ video, onToggleLike, onToggleRepost, onAuthorClick, onComme
           <img src={video.avatar} className="w-8 h-8 rounded-full object-cover flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity" alt={video.author} onClick={onAuthorClick} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2 cursor-pointer hover:opacity-70 transition-opacity" onClick={() => onPlay(video)}>{video.title}</p>
-            <button onClick={onAuthorClick} className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-0.5">{video.author}</button>
+            <button onClick={onAuthorClick} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mt-0.5">
+              {video.author}
+              {verified && <Icon name="BadgeCheck" size={12} style={{ color: 'hsl(4 90% 55%)' }} />}
+            </button>
             <p className="text-xs text-muted-foreground">{video.views} просмотров</p>
           </div>
         </div>
@@ -873,9 +777,9 @@ function VideoCard({ video, onToggleLike, onToggleRepost, onAuthorClick, onComme
 
 // ─── Pages ─────────────────────────────────────────────────────────────────────
 
-function HomePage({ videos, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay }: {
-  videos: Video[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
-  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void;
+function HomePage({ videos, bloggers, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay, onAuthorClick }: {
+  videos: Video[]; bloggers: Blogger[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
+  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void; onAuthorClick: (id: number) => void;
 }) {
   return (
     <div className="animate-fade-in">
@@ -913,16 +817,16 @@ function HomePage({ videos, onToggleLike, onToggleRepost, setPage, onComment, on
       </div>
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
         {videos.map((v) => (
-          <VideoCard key={v.id} video={v} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => setPage('profile')} onComment={onComment} onShare={onShare} onPlay={onPlay} />
+          <VideoCard key={v.id} video={v} verified={bloggers.find(b => b.id === v.authorId)?.verified} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => onAuthorClick(v.authorId)} onComment={onComment} onShare={onShare} onPlay={onPlay} />
         ))}
       </div>
     </div>
   );
 }
 
-function FeedPage({ videos, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay }: {
-  videos: Video[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
-  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void;
+function FeedPage({ videos, bloggers, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay, onAuthorClick }: {
+  videos: Video[]; bloggers: Blogger[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
+  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void; onAuthorClick: (id: number) => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'subscriptions' | 'new'>('all');
   const filtered = videos.filter((v) => filter === 'subscriptions' ? v.subscribed : filter === 'new' ? v.isNew : true);
@@ -940,16 +844,16 @@ function FeedPage({ videos, onToggleLike, onToggleRepost, setPage, onComment, on
         <div className="text-center py-20 text-muted-foreground"><Icon name="VideoOff" size={32} className="mx-auto mb-3 opacity-30" /><p className="text-sm">Нет видео по этому фильтру</p></div>
       ) : (
         <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-          {filtered.map((v) => <VideoCard key={v.id} video={v} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => setPage('profile')} onComment={onComment} onShare={onShare} onPlay={onPlay} />)}
+          {filtered.map((v) => <VideoCard key={v.id} video={v} verified={bloggers.find(b => b.id === v.authorId)?.verified} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => onAuthorClick(v.authorId)} onComment={onComment} onShare={onShare} onPlay={onPlay} />)}
         </div>
       )}
     </div>
   );
 }
 
-function SearchPage({ videos, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay }: {
-  videos: Video[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
-  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void;
+function SearchPage({ videos, bloggers, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay, onAuthorClick }: {
+  videos: Video[]; bloggers: Blogger[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
+  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void; onAuthorClick: (id: number) => void;
 }) {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -984,7 +888,7 @@ function SearchPage({ videos, onToggleLike, onToggleRepost, setPage, onComment, 
             <div className="text-center py-12 text-muted-foreground"><Icon name="SearchX" size={28} className="mx-auto mb-2 opacity-30" /><p className="text-sm">Ничего не найдено</p></div>
           ) : (
             <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-              {results.map((v) => <VideoCard key={v.id} video={v} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => setPage('profile')} onComment={onComment} onShare={onShare} onPlay={onPlay} />)}
+              {results.map((v) => <VideoCard key={v.id} video={v} verified={bloggers.find(b => b.id === v.authorId)?.verified} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => onAuthorClick(v.authorId)} onComment={onComment} onShare={onShare} onPlay={onPlay} />)}
             </div>
           )}
         </div>
@@ -1006,9 +910,9 @@ function SearchPage({ videos, onToggleLike, onToggleRepost, setPage, onComment, 
   );
 }
 
-function RecommendationsPage({ videos, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay }: {
-  videos: Video[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
-  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void;
+function RecommendationsPage({ videos, bloggers, onToggleLike, onToggleRepost, setPage, onComment, onShare, onPlay, onAuthorClick }: {
+  videos: Video[]; bloggers: Blogger[]; onToggleLike: (id: number) => void; onToggleRepost: (id: number) => void;
+  setPage: (p: Page) => void; onComment: (v: Video) => void; onShare: (t: string) => void; onPlay: (v: Video) => void; onAuthorClick: (id: number) => void;
 }) {
   const tags = ['Все', 'Монтаж', 'Влоги', 'Техника', 'Путешествия'];
   const tagToCategory: Record<string, string> = { Монтаж: 'Кино', Влоги: 'Влоги', Техника: 'Технологии', Путешествия: 'Путешествия' };
@@ -1026,7 +930,7 @@ function RecommendationsPage({ videos, onToggleLike, onToggleRepost, setPage, on
         ))}
       </div>
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-        {filtered.map((v) => <VideoCard key={v.id} video={v} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => setPage('profile')} onComment={onComment} onShare={onShare} onPlay={onPlay} />)}
+        {filtered.map((v) => <VideoCard key={v.id} video={v} verified={bloggers.find(b => b.id === v.authorId)?.verified} onToggleLike={onToggleLike} onToggleRepost={onToggleRepost} onAuthorClick={() => onAuthorClick(v.authorId)} onComment={onComment} onShare={onShare} onPlay={onPlay} />)}
       </div>
     </div>
   );
@@ -1127,15 +1031,10 @@ function NotificationsPage() {
   );
 }
 
-function ProfilePage({ setPage }: { setPage: (p: Page) => void }) {
+function ProfilePage({ setPage, onVideoClick }: { setPage: (p: Page) => void; onVideoClick: (v: Video) => void }) {
   const [subscribed, setSubscribed] = useState(false);
-  const [viewingVideo, setViewingVideo] = useState<Video | null>(null);
   return (
     <div className="animate-fade-in">
-      {viewingVideo && (
-        <VideoPlayer video={viewingVideo} onClose={() => setViewingVideo(null)}
-          onComment={() => {}} onToggleLike={() => {}} onToggleRepost={() => {}} onShare={() => {}} />
-      )}
       <div className="h-32 md:h-36 rounded-xl overflow-hidden mb-4">
         <img src="https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=1200&q=60" className="w-full h-full object-cover opacity-60" alt="" />
       </div>
@@ -1164,8 +1063,8 @@ function ProfilePage({ setPage }: { setPage: (p: Page) => void }) {
         </button>
       </div>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 md:gap-3">
-        {INITIAL_VIDEOS.slice(0, 4).map((v) => (
-          <div key={v.id} className="cursor-pointer group" onClick={() => setViewingVideo(v)}>
+        {DATA_VIDEOS.slice(0, 4).map((v) => (
+          <div key={v.id} className="cursor-pointer group" onClick={() => onVideoClick(v)}>
             <div className="aspect-video rounded-lg overflow-hidden bg-muted mb-2 relative">
               <img src={v.thumb} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" alt={v.title} />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -1187,12 +1086,33 @@ function ProfilePage({ setPage }: { setPage: (p: Page) => void }) {
 export default function App() {
   const isMobile = useIsMobile();
   const [page, setPage] = useState<Page>('home');
-  const [videos, setVideos] = useState<Video[]>(INITIAL_VIDEOS);
+  const [videos, setVideos] = useState<Video[]>(DATA_VIDEOS);
+  const [bloggers, setBloggers] = useState<Blogger[]>(BLOGGERS);
   const [commentVideo, setCommentVideo] = useState<Video | null>(null);
   const [playingVideo, setPlayingVideo] = useState<Video | null>(null);
+  const [currentVideoPage, setCurrentVideoPage] = useState<Video | null>(null);
+  const [currentBloggerPage, setCurrentBloggerPage] = useState<Blogger | null>(null);
   const [recording, setRecording] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [notifications] = useState(INITIAL_NOTIFICATIONS);
+
+  const openVideoPage = (video: Video) => {
+    setCurrentVideoPage(video);
+    setCurrentBloggerPage(null);
+    window.scrollTo({ top: 0 });
+  };
+
+  const openBloggerPage = (bloggerId: number) => {
+    const b = bloggers.find((x) => x.id === bloggerId);
+    if (b) { setCurrentBloggerPage(b); setCurrentVideoPage(null); }
+    window.scrollTo({ top: 0 });
+  };
+
+  const toggleVerified = (id: number) => {
+    setBloggers((prev) => prev.map((b) => b.id === id
+      ? { ...b, verified: !b.verified, verifiedAt: !b.verified ? new Date().toISOString().split('T')[0] : undefined }
+      : b));
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -1215,7 +1135,94 @@ export default function App() {
   const unreadMessages = INITIAL_MESSAGES.reduce((acc, m) => acc + m.unread, 0);
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
-  const cardProps = { videos, onToggleLike: toggleLike, onToggleRepost: toggleRepost, setPage, onComment: setCommentVideo, onShare: handleShare, onPlay: setPlayingVideo };
+  const cardProps = {
+    videos,
+    bloggers,
+    onToggleLike: toggleLike,
+    onToggleRepost: toggleRepost,
+    setPage,
+    onComment: setCommentVideo,
+    onShare: handleShare,
+    onPlay: openVideoPage,
+    onAuthorClick: openBloggerPage,
+  };
+
+  // VideoPage overlay
+  if (currentVideoPage) {
+    const blogger = bloggers.find((b) => b.id === currentVideoPage.authorId) || bloggers[0];
+    return (
+      <div className="min-h-screen bg-background flex">
+        {!isMobile && (
+          <Sidebar page={page} setPage={(p) => { setPage(p); setCurrentVideoPage(null); setCurrentBloggerPage(null); }} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
+        )}
+        <main className={`flex-1 min-h-screen ${!isMobile ? 'ml-56' : ''}`}>
+          {isMobile && (
+            <header className="sticky top-0 bg-white border-b border-border z-10 px-4 py-3 flex items-center gap-3">
+              <button onClick={() => setCurrentVideoPage(null)} className="p-1.5 rounded-md hover:bg-secondary transition-colors">
+                <Icon name="ArrowLeft" size={18} />
+              </button>
+              <span className="font-semibold text-sm truncate flex-1">{currentVideoPage.title}</span>
+            </header>
+          )}
+          <div className={`mx-auto px-4 py-5 md:px-6 md:py-8 max-w-5xl ${isMobile ? 'pb-24' : ''}`}>
+            {!isMobile && (
+              <button onClick={() => setCurrentVideoPage(null)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
+                <Icon name="ArrowLeft" size={16} /> Назад
+              </button>
+            )}
+            <VideoPage
+              video={currentVideoPage}
+              blogger={blogger}
+              videos={videos}
+              onBack={() => setCurrentVideoPage(null)}
+              onToggleLike={toggleLike}
+              onToggleRepost={toggleRepost}
+              onAuthorClick={openBloggerPage}
+              onVideoClick={openVideoPage}
+              onShare={handleShare}
+            />
+          </div>
+        </main>
+        {isMobile && <MobileNav page={page} setPage={(p) => { setPage(p); setCurrentVideoPage(null); setCurrentBloggerPage(null); }} unreadNotifications={unreadNotifications} onRecord={() => setRecording(true)} />}
+        {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      </div>
+    );
+  }
+
+  // BloggerPage overlay
+  if (currentBloggerPage) {
+    return (
+      <div className="min-h-screen bg-background flex">
+        {!isMobile && (
+          <Sidebar page={page} setPage={(p) => { setPage(p); setCurrentVideoPage(null); setCurrentBloggerPage(null); }} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
+        )}
+        <main className={`flex-1 min-h-screen ${!isMobile ? 'ml-56' : ''}`}>
+          {isMobile && (
+            <header className="sticky top-0 bg-white border-b border-border z-10 px-4 py-3 flex items-center gap-3">
+              <button onClick={() => setCurrentBloggerPage(null)} className="p-1.5 rounded-md hover:bg-secondary transition-colors">
+                <Icon name="ArrowLeft" size={18} />
+              </button>
+              <span className="font-semibold text-sm truncate flex-1">{currentBloggerPage.name}</span>
+            </header>
+          )}
+          <div className={`mx-auto px-4 py-5 md:px-6 md:py-8 max-w-5xl ${isMobile ? 'pb-24' : ''}`}>
+            {!isMobile && (
+              <button onClick={() => setCurrentBloggerPage(null)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
+                <Icon name="ArrowLeft" size={16} /> Назад
+              </button>
+            )}
+            <BloggerPage
+              blogger={currentBloggerPage}
+              onBack={() => setCurrentBloggerPage(null)}
+              onVideoClick={openVideoPage}
+            />
+          </div>
+        </main>
+        {isMobile && <MobileNav page={page} setPage={(p) => { setPage(p); setCurrentVideoPage(null); setCurrentBloggerPage(null); }} unreadNotifications={unreadNotifications} onRecord={() => setRecording(true)} />}
+        {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      </div>
+    );
+  }
 
   const renderPage = () => {
     switch (page) {
@@ -1228,7 +1235,15 @@ export default function App() {
       case 'upload': return isMobile
         ? <RecordPage onPublish={() => { setRecording(false); setPage('feed'); }} />
         : <DesktopUploadPage onPublish={() => setPage('feed')} />;
-      case 'profile': return <ProfilePage setPage={setPage} />;
+      case 'profile': return <ProfilePage setPage={setPage} onVideoClick={openVideoPage} />;
+      case 'admin': return (
+        <AdminPage
+          bloggers={bloggers}
+          onToggleVerified={toggleVerified}
+          onBack={() => setPage('home')}
+          onBloggerClick={openBloggerPage}
+        />
+      );
     }
   };
 
